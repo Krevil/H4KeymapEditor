@@ -5,7 +5,7 @@ namespace H4KeymapEditor.Models
 {
     public class Settings
     {
-        private static string FilePath = Path.Combine(AppContext.BaseDirectory, "settings.json");
+        private static string FilePath = Path.Combine(AppContext.BaseDirectory, "H4KeymapEditor_settings.json");
 
         public bool UseDarkMode { get; set; }
         public bool ShowUnknowns { get; set; }
