@@ -2,7 +2,6 @@
 using System.ComponentModel;
 using System.Windows.Data;
 using System.Collections.ObjectModel;
-using System.Windows.Input;
 using System.IO;
 using H4KeymapEditor.Models;
 using H4KeymapEditor.Themes;
@@ -47,26 +46,88 @@ namespace H4KeymapEditor.ViewModels
         public MainViewModel()
         {
             Executables = new List<ExecutableType> { ExecutableType.Sapien, ExecutableType.TagTest };
-            VisibleKeyBindings = CollectionViewSource.GetDefaultView(Models.KeyBinding.KeyBindings);
+            VisibleKeyBindings = CollectionViewSource.GetDefaultView(KeyBinding.KeyBindings);
             VisibleKeyBindings.Filter = KeyBindingFilter;
             Keycodes = Enum.GetValues<Keycode>();
         }
 
         public void OpenFile(string filePath)
         {
+            ExecutableType newExeType;
+            if (filePath.Contains("sapien"))
+            {
+                if (filePath.Contains("sapien_play"))
+                {
+                    MessageBox.Show("Play executables not currently supported");
+                    return;
+                }
+                newExeType = ExecutableType.Sapien;
+            }
+            else if (filePath.Contains("tag_test"))
+            {
+                newExeType = ExecutableType.TagTest;
+            }
+            else if (filePath.Contains("tag_play"))
+            {
+                MessageBox.Show("Play executables not currently supported");
+                return;
+            }
+            else
+            {
+                MessageBox.Show("Executable must be either sapien or tag_test");
+                return;
+            }
+
+            // If there is current keybindings loaded
+            if (KeyBinding.KeyBindings.Count > 0)
+            {
+                // handle save and close
+                var result = MessageBox.Show("Save current keybindings?", "Save keybindings?", MessageBoxButton.YesNo);
+                if (result == MessageBoxResult.Yes)
+                {
+                    SaveFile();
+                }
+            }
             currentFile = filePath;
-            Patcher.OpenFile(filePath);
+            Patcher.OpenFile(filePath, newExeType);
+            SelectedExecutable = newExeType;
             VisibleKeyBindings.Refresh();
         }
 
         public void SaveFile()
         {
-
+            if (currentFile == null)
+                return;
+            ExecutableType exeType;
+            if (currentFile.Contains("sapien"))
+            {
+                if (currentFile.Contains("sapien_play"))
+                {
+                    MessageBox.Show("Play executables not currently supported");
+                    return;
+                }
+                exeType = ExecutableType.Sapien;
+            }
+            else if (currentFile.Contains("tag_test"))
+            {
+                exeType = ExecutableType.TagTest;
+            }
+            else if (currentFile.Contains("tag_play"))
+            {
+                MessageBox.Show("Play executables not currently supported");
+                return;
+            }
+            else
+            {
+                MessageBox.Show("Executable must be either sapien or tag_test");
+                return;
+            }
+            Patcher.SaveFile(currentFile, exeType);
         }
 
         private bool KeyBindingFilter(object obj)
         {
-            if (obj is Models.KeyBinding keyBinding)
+            if (obj is KeyBinding keyBinding)
             {
                 return (!keyBinding.Unknown || ShowUnknowns) && keyBinding.PrimaryKey != Keycode.Invalid;
             }

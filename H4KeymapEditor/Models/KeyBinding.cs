@@ -129,7 +129,7 @@ namespace H4KeymapEditor.Models
         public string Name { get; }
         public Keycode PrimaryKey {  get; set; }
         public Keycode SecondaryKey { get; set; }
-        public uint MovOffset { get; set; }
+        public int? MovOffset { get; set; }
         public long MemoryOffset { get; }
         public bool Unknown { get; }
 

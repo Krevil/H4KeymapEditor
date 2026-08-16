@@ -1,14 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Buffers.Binary;
-using System.Collections.ObjectModel;
-using System.IO;
+﻿using System.IO;
 using System.Windows;
-using System.Security.AccessControl;
-using System.Windows.Data;
+using System.Buffers.Binary;
 
 namespace H4KeymapEditor.Models
 {
@@ -20,57 +12,37 @@ namespace H4KeymapEditor.Models
         public const long TagTestFileOffset = 0x1FFE6A;
         public const long InstructionsLength = 0x350;
 
-        public static void OpenFile(string filePath)
+        public static void OpenFile(string filePath, ExecutableType exeType)
         {
-            ExecutableType newExeType;
-            if (filePath.Contains("sapien"))
+            FileStream fs;
+            try
             {
-                if (filePath.Contains("sapien_play"))
-                {
-                    MessageBox.Show("Play executables not currently supported");
-                    return;
-                }
-                newExeType = ExecutableType.Sapien;
+                fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+
             }
-            else if (filePath.Contains("tag_test"))
+            catch (IOException)
             {
-                newExeType = ExecutableType.TagTest;
-            }
-            else if (filePath.Contains("tag_play"))
-            {
-                MessageBox.Show("Play executables not currently supported");
+                MessageBox.Show("Could not open file");
                 return;
             }
-            else
+            catch (UnauthorizedAccessException)
             {
-                MessageBox.Show("Executable must be either sapien or tag_test");
+                MessageBox.Show("No permission to access file");
                 return;
             }
 
-            // If there is current keybindings loaded
-            if (KeyBinding.KeyBindings.Count > 0)
-            {
-                // handle save and close
-                var result = MessageBox.Show("Save current keybindings?", "Save keybindings?", MessageBoxButton.YesNo);
-                if (result == MessageBoxResult.Yes)
-                {
-                    SaveFile();
-                }
-            }
-
-            FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            if (!Validation.ValidateExecutable(fs, newExeType))
+            if (!Validation.ValidateExecutable(fs, exeType))
             {
                 MessageBox.Show("Could not validate executable");
                 fs.Close();
                 return;
             }
             byte[] bytes = new byte[InstructionsLength];
-            if (newExeType == ExecutableType.Sapien)
+            if (exeType == ExecutableType.Sapien)
             {
                 fs.Seek(SapienFileOffset, SeekOrigin.Begin);
             }
-            else if (newExeType == ExecutableType.TagTest)
+            else if (exeType == ExecutableType.TagTest)
             {
                 fs.Seek(TagTestFileOffset, SeekOrigin.Begin);
             }
@@ -83,15 +55,63 @@ namespace H4KeymapEditor.Models
             fs.Close();
             List<KeyBinding> newBindings = ReadKeyBindings(bytes);
             KeyBinding.KeyBindings.Clear();
-            foreach (KeyBinding binding in  newBindings)
+            foreach (KeyBinding binding in newBindings)
             {
                 KeyBinding.KeyBindings.Add(binding);
             }
         }
 
-        public static void SaveFile()
+        public static void SaveFile(string filePath, ExecutableType exeType)
         {
+            FileStream fs;
+            try
+            {
+                fs = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                MessageBox.Show("Could not open file");
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                MessageBox.Show("No permission to access file");
+                return;
+            }
 
+            if (!Validation.ValidateExecutable(fs, exeType))
+            {
+                MessageBox.Show("Could not validate executable");
+                fs.Close();
+                return;
+            }
+            byte[] bytes = new byte[InstructionsLength];
+            if (exeType == ExecutableType.Sapien)
+            {
+                fs.Seek(SapienFileOffset, SeekOrigin.Begin);
+            }
+            else if (exeType == ExecutableType.TagTest)
+            {
+                fs.Seek(TagTestFileOffset, SeekOrigin.Begin);
+            }
+            else
+            {
+                // This should be unreachable but just in case
+                return;
+            }
+            fs.Read(bytes, 0, bytes.Length);
+            WriteKeyBindings(bytes);
+            if (exeType == ExecutableType.Sapien)
+            {
+                fs.Seek(SapienFileOffset, SeekOrigin.Begin);
+            }
+            else if (exeType == ExecutableType.TagTest)
+            {
+                fs.Seek(TagTestFileOffset, SeekOrigin.Begin);
+            }
+            fs.Write(bytes, 0, bytes.Length);
+            fs.Close();
+            MessageBox.Show("Saved file");
         }
 
         // Take section bytes from FileStream, read the keycodes and their offset 
@@ -103,24 +123,24 @@ namespace H4KeymapEditor.Models
             {
                 long offset;
                 // Instruction is mov
-                uint movOffset;
+                int movOffset;
                 Keycode keyCode;
                 if (bytes[i] == 0xC7)
                 {
                     if (bytes[i + 1] == 0x41) //8bit
                     {
                         offset = (sbyte)bytes[i + 2];
-                        movOffset = (uint)(i + 6);
-                        keyCode = (Keycode)BitConverter.ToUInt32(bytes, i + 3);
+                        movOffset = i + 3;
+                        keyCode = (Keycode)BitConverter.ToUInt32(bytes, movOffset);
                     }
                     else if (bytes[i + 1] == 0x81) //32bit
                     {
                         // Memory offset to compare against bindings dictionary
                         offset = BitConverter.ToInt32(bytes, i + 2);
                         // Offbyte in bytes to write to when saving new bindings back to file
-                        movOffset = (uint)(i + 6);
+                        movOffset = i + 6;
                         // Current keycode from the file
-                        keyCode = (Keycode)BitConverter.ToUInt32(bytes, i + 6);
+                        keyCode = (Keycode)BitConverter.ToUInt32(bytes, movOffset);
                     }
                     else
                         continue;
@@ -128,7 +148,7 @@ namespace H4KeymapEditor.Models
                 else
                     continue;
 
-                    offset -= KeyBinding.FileOffsetBase;
+                offset -= KeyBinding.FileOffsetBase;
                 // Only looking for offsets that start at 5D0 or above
                 if (offset < 0) continue;
                 if (OffsetMapping.TryGetValue(offset, out KeyBinding keyBinding))
@@ -139,6 +159,22 @@ namespace H4KeymapEditor.Models
                 }
             }
             return bindings;
+        }
+
+        // Get bytes from Sapien/tag_test, modify them using Keybindings
+        public static void WriteKeyBindings(byte[] bytes)
+        {
+            foreach (KeyBinding binding in KeyBinding.KeyBindings)
+            {
+                if (!binding.MovOffset.HasValue)
+                    continue;
+
+                if (binding.MovOffset > bytes.Length)
+                    continue;
+                int offset = binding.MovOffset.Value;
+                byte[] primaryKeyBytes = BitConverter.GetBytes((int)binding.PrimaryKey);
+                Array.Copy(primaryKeyBytes, 0, bytes, offset, 4);
+            }
         }
     }
 }
