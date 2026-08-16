@@ -32,5 +32,26 @@ namespace H4KeymapEditor.Themes
                 CurrentTheme = newTheme;
             }
         }
+
+        public static void SwapTheme(Theme theme)
+        {
+            Collection<ResourceDictionary> dict = Application.Current.Resources.MergedDictionaries;
+            string? removePath;
+            string? newPath;
+            Models.Themes.ThemeDictionary.TryGetValue(CurrentTheme, out removePath);
+            Models.Themes.ThemeDictionary.TryGetValue(theme, out newPath);
+            if (CurrentTheme == theme)
+                return;
+            if (removePath != null && newPath != null)
+            {
+                ResourceDictionary? removeDict = dict.FirstOrDefault(d => d.Source?.OriginalString == removePath);
+                if (removeDict != null)
+                {
+                    dict.Remove(removeDict);
+                }
+                dict.Insert(0, new ResourceDictionary { Source = new Uri(newPath, UriKind.Relative) });
+                CurrentTheme = theme;
+            }
+        }
     }
 }

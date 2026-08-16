@@ -16,29 +16,27 @@ namespace H4KeymapEditor.ViewModels
         public Keycode[] Keycodes { get; }
         public string? currentFile { get; private set; }
         
-        private bool useDarkMode;
         public bool UseDarkMode
         {
             get
             {
-                return useDarkMode;
+                return ((App)Application.Current).AppSettings.UseDarkMode;
             }
             set
             {
                 ThemeManager.SwapTheme();
-                useDarkMode = value;
+                ((App)Application.Current).AppSettings.UseDarkMode = value;
             }
         }
-        private bool showUnknowns = false;
         public bool ShowUnknowns
         {
             get
             {
-                return showUnknowns;
+                return ((App)Application.Current).AppSettings.ShowUnknowns;
             }
             set
             {
-                showUnknowns = value;
+                ((App)Application.Current).AppSettings.ShowUnknowns = value;
                 VisibleKeyBindings.Refresh();
             }
         }

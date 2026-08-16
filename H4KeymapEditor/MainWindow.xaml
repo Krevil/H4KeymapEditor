@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:H4KeymapEditor"
         xmlns:vm="clr-namespace:H4KeymapEditor.ViewModels"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Halo 4 Keymapping Editor" Height="450" Width="800">
     <Window.DataContext>
         <vm:MainViewModel/>
     </Window.DataContext>
